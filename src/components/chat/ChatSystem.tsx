@@ -5,6 +5,9 @@ import { Card } from '../ui/Card';
 import Button from '../ui/Button';
 import { Send, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { ErrorMessage } from '../ui/ErrorMessage';
+import { soundManager } from '../../lib/sounds';
 
 interface Message {
   id: string;
@@ -21,6 +24,7 @@ export const ChatSystem: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,6 +42,7 @@ export const ChatSystem: React.FC = () => {
 
   const fetchMessages = async () => {
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('chat_messages')
         .select(`
@@ -53,7 +58,10 @@ export const ChatSystem: React.FC = () => {
       if (error) throw error;
       setMessages(data.reverse());
     } catch (error) {
+      setError('Failed to load messages');
       console.error('Error fetching messages:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,6 +90,7 @@ export const ChatSystem: React.FC = () => {
 
           if (!error && message) {
             setMessages((prev) => [...prev, message]);
+            soundManager.play('click');
           }
         }
       )
@@ -97,6 +106,8 @@ export const ChatSystem: React.FC = () => {
     if (!newMessage.trim() || !user) return;
 
     setLoading(true);
+    setError(null);
+
     try {
       const { error } = await supabase.from('chat_messages').insert({
         user_id: user.id,
@@ -105,12 +116,22 @@ export const ChatSystem: React.FC = () => {
 
       if (error) throw error;
       setNewMessage('');
+      soundManager.play('click');
     } catch (error) {
+      setError('Failed to send message');
       console.error('Error sending message:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  if (loading && messages.length === 0) {
+    return (
+      <Card className="flex items-center justify-center h-[500px]">
+        <LoadingSpinner size="lg" />
+      </Card>
+    );
+  }
 
   return (
     <Card className="flex flex-col h-[500px]">
@@ -118,6 +139,8 @@ export const ChatSystem: React.FC = () => {
         <MessageSquare className="w-6 h-6 text-primary" />
         <h2 className="text-xl font-bold">Chat</h2>
       </div>
+
+      {error && <ErrorMessage message={error} className="mb-4" />}
 
       <div className="flex-1 overflow-y-auto mb-4 space-y-4">
         <AnimatePresence initial={false}>
@@ -156,6 +179,7 @@ export const ChatSystem: React.FC = () => {
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Type a message..."
           className="flex-1 px-4 py-2 bg-surface border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+          disabled={loading}
         />
         <Button type="submit" disabled={loading || !newMessage.trim()}>
           <Send className="w-5 h-5" />
