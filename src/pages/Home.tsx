@@ -57,7 +57,6 @@ const Home = () => {
       <section className="bg-gray-800 p-8 rounded-lg">
         <h2 className="text-2xl font-bold mb-4">Latest Winners</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Placeholder for leaderboard data */}
           <div className="bg-gray-700 p-4 rounded-md">
             <p className="font-semibold">Chess Champion</p>
             <p className="text-gray-400">Player123</p>

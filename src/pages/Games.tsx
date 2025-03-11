@@ -6,7 +6,6 @@ const Games = () => {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold">Games</h1>
       <Routes>
-        {/* Game routes will be added here */}
         <Route path="/" element={<GamesList />} />
       </Routes>
     </div>

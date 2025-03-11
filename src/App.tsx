@@ -8,7 +8,7 @@ import Profile from './pages/Profile';
 import { useAuthStore } from './store/authStore';
 
 function App() {
-  const { user, loading } = useAuthStore();
+  const { loading } = useAuthStore();
 
   if (loading) {
     return (
