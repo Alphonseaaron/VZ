@@ -1,14 +1,23 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { TowerControl, User, LogOut, Sun, Moon } from 'lucide-react';
+import { useAdminStore } from '../../store/adminStore';
+import { TowerControl, User, LogOut, Sun, Moon, Settings, Users, LayoutDashboard } from 'lucide-react';
 import { WalletDisplay } from '../wallet/WalletDisplay';
 import { useTheme } from './ThemeProvider';
 import { motion } from 'framer-motion';
 
 export const Navbar = () => {
   const { user, signOut } = useAuthStore();
+  const { isAdmin } = useAdminStore();
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
+
+  const adminLinks = [
+    { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
+    { path: '/admin/users', icon: Users, label: 'Users' },
+    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+  ];
 
   return (
     <nav className="bg-surface border-b border-border">
@@ -20,6 +29,25 @@ export const Navbar = () => {
           </Link>
 
           <div className="flex items-center space-x-6">
+            {isAdmin && (
+              <div className="flex items-center space-x-4">
+                {adminLinks.map((link) => (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors ${
+                      location.pathname === link.path
+                        ? 'bg-primary text-secondary'
+                        : 'hover:bg-surface/80'
+                    }`}
+                  >
+                    <link.icon className="w-4 h-4" />
+                    <span>{link.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+
             {user && <WalletDisplay />}
             
             <button
@@ -61,4 +89,4 @@ export const Navbar = () => {
       </div>
     </nav>
   );
-};
+}

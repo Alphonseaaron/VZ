@@ -10,6 +10,9 @@ import { useAuthStore } from './store/authStore';
 import { Leaderboard } from './components/leaderboard/Leaderboard';
 import { ChatSystem } from './components/chat/ChatSystem';
 import { LoyaltySystem } from './components/rewards/LoyaltySystem';
+import AdminDashboard from './pages/admin/Dashboard';
+import UserManagement from './pages/admin/UserManagement';
+import GameSettings from './pages/admin/GameSettings';
 
 function App() {
   const { user } = useAuthStore();
@@ -31,6 +34,9 @@ function App() {
           <Route path="/" element={<SlotMachine />} />
           <Route path="/dice" element={<DiceGame />} />
           <Route path="/crash" element={<CrashGame />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<UserManagement />} />
+          <Route path="/admin/settings" element={<GameSettings />} />
         </Routes>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
           <Leaderboard />
