@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Wallet } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
-import { useEffect, useState } from 'react';
+import { useBalanceStore } from '../../store/balanceStore';
 
 export const WalletDisplay: React.FC = () => {
   const { user } = useAuthStore();
-  const [balance, setBalance] = useState<number>(0);
+  const { balance, fetchBalance } = useBalanceStore();
 
   useEffect(() => {
     if (!user) return;
@@ -26,30 +26,20 @@ export const WalletDisplay: React.FC = () => {
           table: 'profiles',
           filter: `id=eq.${user.id}`,
         },
-        (payload) => {
-          setBalance(payload.new.balance);
+        () => {
+          fetchBalance();
         }
       )
       .subscribe();
 
+    // Poll for balance updates every 10 seconds as backup
+    const interval = setInterval(fetchBalance, 10000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
-  }, [user]);
-
-  const fetchBalance = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('balance')
-      .eq('id', user.id)
-      .single();
-
-    if (data && !error) {
-      setBalance(data.balance);
-    }
-  };
+  }, [user, fetchBalance]);
 
   return (
     <AnimatePresence mode="wait">

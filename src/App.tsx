@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { Toaster } from 'react-hot-toast';
 import AuthForm from './components/auth/AuthForm';
@@ -13,6 +13,7 @@ import { LoyaltySystem } from './components/rewards/LoyaltySystem';
 import AdminDashboard from './pages/admin/Dashboard';
 import UserManagement from './pages/admin/UserManagement';
 import GameSettings from './pages/admin/GameSettings';
+import Games from './pages/Games';
 
 function App() {
   const { user } = useAuthStore();
@@ -27,26 +28,21 @@ function App() {
   }
 
   return (
-    <Router>
-      <Layout>
-        <Toaster position="top-right" />
-        <Routes>
-          <Route path="/" element={<SlotMachine />} />
-          <Route path="/dice" element={<DiceGame />} />
-          <Route path="/crash" element={<CrashGame />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/users" element={<UserManagement />} />
-          <Route path="/admin/settings" element={<GameSettings />} />
-        </Routes>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-          <Leaderboard />
-          <ChatSystem />
-        </div>
-        <div className="mt-8">
-          <LoyaltySystem />
-        </div>
-      </Layout>
-    </Router>
+    <Layout>
+      <Toaster position="top-right" />
+      <Routes>
+        <Route path="/" element={<SlotMachine />} />
+        <Route path="/dice" element={<DiceGame />} />
+        <Route path="/crash" element={<CrashGame />} />
+        <Route path="/games" element={<Games />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/chat" element={<ChatSystem />} />
+        <Route path="/rewards" element={<LoyaltySystem />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/settings" element={<GameSettings />} />
+      </Routes>
+    </Layout>
   );
 }
 
