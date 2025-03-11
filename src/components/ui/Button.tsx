@@ -1,22 +1,21 @@
 import { forwardRef } from 'react';
 import { twMerge } from 'tailwind-merge';
+import { motion } from 'framer-motion';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'primary-dark' | 'secondary-dark' | 'outline-dark';
+  variant?: 'primary' | 'secondary' | 'outline';
   size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', ...props }, ref) => {
-    const baseStyles = 'rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  ({ className, variant = 'primary', size = 'md', loading, children, ...props }, ref) => {
+    const baseStyles = 'rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
     
     const variants = {
-      primary: 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500',
-      secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500',
-      outline: 'border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 focus:ring-indigo-500',
-      'primary-dark': 'bg-indigo-500 text-white hover:bg-indigo-600 focus:ring-indigo-400',
-      'secondary-dark': 'bg-gray-700 text-gray-100 hover:bg-gray-600 focus:ring-gray-500',
-      'outline-dark': 'border-2 border-indigo-400 text-indigo-400 hover:bg-indigo-500/10 focus:ring-indigo-400',
+      primary: 'bg-primary text-secondary hover:bg-primary/90 focus:ring-primary/50',
+      secondary: 'bg-surface text-text hover:bg-surface/90 focus:ring-surface/50',
+      outline: 'border-2 border-primary text-primary hover:bg-primary/10 focus:ring-primary/50',
     };
 
     const sizes = {
@@ -26,17 +25,25 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     return (
-      <button
+      <motion.button
         ref={ref}
+        whileTap={{ scale: 0.98 }}
         className={twMerge(
           baseStyles,
           variants[variant],
           sizes[size],
-          props.disabled && 'opacity-50 cursor-not-allowed',
           className
         )}
         {...props}
-      />
+      >
+        {loading ? (
+          <div className="flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          children
+        )}
+      </motion.button>
     );
   }
 );
