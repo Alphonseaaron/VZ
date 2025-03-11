@@ -26,6 +26,14 @@ export const useBalanceStore = create<BalanceStore>((set, get) => ({
 
       if (error) throw error;
       await get().fetchBalance();
+
+      // Broadcast balance update to all subscribers
+      const channel = supabase.channel('balance_update');
+      channel.send({
+        type: 'broadcast',
+        event: 'balance_change',
+        payload: { user_id: user.id }
+      });
     } catch (error) {
       set({ error: (error as Error).message });
     }
@@ -50,3 +58,15 @@ export const useBalanceStore = create<BalanceStore>((set, get) => ({
     }
   }
 }));
+
+// Subscribe to real-time balance updates
+supabase
+  .channel('balance_changes')
+  .on(
+    'postgres_changes',
+    { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${supabase.auth.getUser().then(({ data }) => data.user?.id)}` },
+    () => {
+      useBalanceStore.getState().fetchBalance();
+    }
+  )
+  .subscribe();

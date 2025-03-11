@@ -4,21 +4,12 @@
 
 @layer base {
   :root {
-    --background: #ffffff;
-    --surface: #f3f4f6;
-    --primary: #FFD700;
-    --secondary: #1a1a1a;
-    --text: #1a1a1a;
-    --border: #e5e7eb;
-  }
-
-  :root.dark {
-    --background: #1a1a1a;
-    --surface: #2d2d2d;
-    --primary: #FFD700;
+    --background: #0f172a;
+    --surface: #1e293b;
+    --primary: #8b5cf6;
     --secondary: #ffffff;
     --text: #ffffff;
-    --border: #404040;
+    --border: #334155;
   }
 }
 
@@ -33,7 +24,7 @@
 
 .game-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
 }
 
 /* Animated gradient background */
@@ -41,7 +32,7 @@
   background: linear-gradient(
     45deg,
     var(--primary) 0%,
-    #f7931a 50%,
+    #6d28d9 50%,
     var(--primary) 100%
   );
   background-size: 200% 200%;
