@@ -1,9 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './supabase-types';
 
-// CRITICAL: These values should be moved to environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qnpztvrljsqxlgllvxmq.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHp0dnJsanNxeGxnbGx2eG1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2ODgzOTIsImV4cCI6MjA1NzI2NDM5Mn0.nT5mnUuwyZLIp9srEQggbNkjecfBfNGpzbxmCkJl2ns';
+const supabaseUrl = 'https://bikextkcrfiidihkeirv.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpa2V4dGtjcmZpaWRpaGtlaXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTg5MjQsImV4cCI6MjA1NzMzNDkyNH0.TatCuVsITsynWjbRuY_BO7OtKxzHaTHONTvh82geRhY';
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {

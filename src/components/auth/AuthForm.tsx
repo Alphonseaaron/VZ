@@ -6,6 +6,7 @@ import { Card } from '../ui/Card';
 import Button from '../ui/Button';
 import { Loader2, Mail, Lock, User } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
 
 const AuthForm = () => {
   const navigate = useNavigate();
@@ -21,14 +22,28 @@ const AuthForm = () => {
 
     try {
       if (isLogin) {
-        await signIn(email, password);
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
         toast.success('Welcome back!');
       } else {
-        await signUp(email, password);
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              email: email, // Include email in metadata
+            }
+          }
+        });
+        if (signUpError) throw signUpError;
         toast.success('Account created successfully!');
       }
       navigate('/');
     } catch (err) {
+      console.error('Auth error:', err);
       toast.error(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);

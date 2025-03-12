@@ -24,6 +24,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          email: email, // Include email in metadata
+        }
+      }
     });
     if (error) throw error;
     set({ user: data.user });
