@@ -6,6 +6,7 @@ import AuthForm from './components/auth/AuthForm';
 import SlotMachine from './components/games/slots/SlotMachine';
 import DiceGame from './components/games/dice/DiceGame';
 import CrashGame from './components/games/crash/CrashGame';
+import ChessGame from './components/games/chess/ChessGame';
 import { useAuthStore } from './store/authStore';
 import { Leaderboard } from './components/leaderboard/Leaderboard';
 import { ChatSystem } from './components/chat/ChatSystem';
@@ -34,6 +35,7 @@ function App() {
         <Route path="/" element={<SlotMachine />} />
         <Route path="/dice" element={<DiceGame />} />
         <Route path="/crash" element={<CrashGame />} />
+        <Route path="/chess" element={<ChessGame />} />
         <Route path="/games" element={<Games />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/chat" element={<ChatSystem />} />

@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
       profiles: {
@@ -17,6 +17,8 @@ export type Database = {
           balance: number
           created_at: string
           updated_at: string
+          is_admin: boolean
+          banned: boolean
         }
         Insert: {
           id: string
@@ -25,6 +27,8 @@ export type Database = {
           balance?: number
           created_at?: string
           updated_at?: string
+          is_admin?: boolean
+          banned?: boolean
         }
         Update: {
           id?: string
@@ -33,6 +37,8 @@ export type Database = {
           balance?: number
           created_at?: string
           updated_at?: string
+          is_admin?: boolean
+          banned?: boolean
         }
       }
       games: {
@@ -151,6 +157,55 @@ export type Database = {
           period_end?: string
         }
       }
+      chat_messages: {
+        Row: {
+          id: string
+          user_id: string
+          message: string
+          created_at: string
+          profiles: {
+            username: string
+          }
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          message: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          message?: string
+          created_at?: string
+        }
+      }
+      game_settings: {
+        Row: {
+          id: string
+          game_type: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          id?: string
+          game_type: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          id?: string
+          game_type?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string
+        }
+      }
     }
     Functions: {
       update_leaderboard: {
@@ -171,6 +226,10 @@ export type Database = {
           p_amount: number
         }
         Returns: undefined
+      }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
     }
   }

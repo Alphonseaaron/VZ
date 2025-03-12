@@ -2,7 +2,19 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useAdminStore } from '../../store/adminStore';
-import { Gamepad2, Dice1 as Dice, Rocket, Coins, Trophy, MessageSquare, Gift, LayoutDashboard, Users, Settings } from 'lucide-react';
+import { 
+  Gamepad2, 
+  Dice1 as Dice, 
+  Rocket, 
+  Coins, 
+  Trophy, 
+  MessageSquare, 
+  Gift, 
+  LayoutDashboard, 
+  Users, 
+  Settings,
+  Crown 
+} from 'lucide-react';
 
 export const Sidebar = () => {
   const { isAdmin } = useAdminStore();
@@ -11,6 +23,7 @@ export const Sidebar = () => {
     { path: '/', icon: Coins, label: 'Slots' },
     { path: '/dice', icon: Dice, label: 'Dice' },
     { path: '/crash', icon: Rocket, label: 'Crash' },
+    { path: '/chess', icon: Crown, label: 'Chess' },
     { path: '/games', icon: Gamepad2, label: 'All Games' },
     { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
     { path: '/chat', icon: MessageSquare, label: 'Chat' },

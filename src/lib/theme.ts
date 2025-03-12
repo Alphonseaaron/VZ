@@ -1,29 +1,19 @@
 import { atom } from 'jotai';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'dark';
 
-export const themeAtom = atom<Theme>(
-  typeof window !== 'undefined'
-    ? (localStorage.getItem('theme') as Theme) || 
-      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    : 'light'
-);
+export const themeAtom = atom<Theme>('dark');
 
 export const colors = {
-  light: {
-    primary: '#FFD700', // Gold
-    secondary: '#1a1a1a',
-    background: '#ffffff',
-    surface: '#f3f4f6',
-    text: '#1a1a1a',
-    border: '#e5e7eb',
-  },
   dark: {
     primary: '#FFD700', // Gold
     secondary: '#ffffff',
-    background: '#1a1a1a',
-    surface: '#2d2d2d',
+    background: '#0A0A1B',
+    surface: '#1A1A2F',
     text: '#ffffff',
-    border: '#404040',
-  },
+    border: '#2A2A4F',
+    accent1: '#FF3366',
+    accent2: '#33FF99',
+    accent3: '#3366FF'
+  }
 };

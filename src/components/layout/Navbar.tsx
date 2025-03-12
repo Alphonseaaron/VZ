@@ -2,15 +2,13 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useAdminStore } from '../../store/adminStore';
-import { TowerControl, User, LogOut, Sun, Moon, Settings, Users, LayoutDashboard } from 'lucide-react';
+import { TowerControl, User, LogOut, Settings, Users, LayoutDashboard } from 'lucide-react';
 import { WalletDisplay } from '../wallet/WalletDisplay';
-import { useTheme } from './ThemeProvider';
 import { motion } from 'framer-motion';
 
 export const Navbar = () => {
   const { user, signOut } = useAuthStore();
   const { isAdmin } = useAdminStore();
-  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
 
   const adminLinks = [
@@ -20,12 +18,17 @@ export const Navbar = () => {
   ];
 
   return (
-    <nav className="bg-surface border-b border-border">
+    <nav className="glass-effect sticky top-0 z-50 border-b border-border/50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center space-x-2">
-            <TowerControl className="w-8 h-8 text-primary" />
-            <span className="text-xl font-bold">VZ Gaming</span>
+            <motion.div
+              whileHover={{ scale: 1.1, rotate: 360 }}
+              transition={{ duration: 0.5 }}
+            >
+              <TowerControl className="w-8 h-8 text-primary neon-text" />
+            </motion.div>
+            <span className="text-xl font-bold neon-text">VZ Gaming</span>
           </Link>
 
           <div className="flex items-center space-x-6">
@@ -35,9 +38,9 @@ export const Navbar = () => {
                   <Link
                     key={link.path}
                     to={link.path}
-                    className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors ${
+                    className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-all ${
                       location.pathname === link.path
-                        ? 'bg-primary text-secondary'
+                        ? 'bg-primary/20 text-primary neon-text'
                         : 'hover:bg-surface/80'
                     }`}
                   >
@@ -49,29 +52,18 @@ export const Navbar = () => {
             )}
 
             {user && <WalletDisplay />}
-            
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-surface/80 transition-colors"
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-primary" />
-              ) : (
-                <Moon className="w-5 h-5 text-primary" />
-              )}
-            </button>
 
             {user ? (
               <motion.div className="flex items-center space-x-4" layout>
                 <Link
                   to="/profile"
-                  className="p-2 rounded-lg hover:bg-surface/80 transition-colors"
+                  className="p-2 rounded-lg hover:bg-surface/80 transition-all hover:neon-border"
                 >
                   <User className="w-5 h-5" />
                 </Link>
                 <button
                   onClick={() => signOut()}
-                  className="p-2 rounded-lg hover:bg-surface/80 transition-colors"
+                  className="p-2 rounded-lg hover:bg-surface/80 transition-all hover:neon-border"
                 >
                   <LogOut className="w-5 h-5" />
                 </button>
@@ -79,7 +71,7 @@ export const Navbar = () => {
             ) : (
               <Link
                 to="/auth"
-                className="bg-primary text-secondary px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+                className="bg-primary text-background px-4 py-2 rounded-lg hover:neon-border transition-all"
               >
                 Sign In
               </Link>
@@ -89,4 +81,4 @@ export const Navbar = () => {
       </div>
     </nav>
   );
-}
+};
