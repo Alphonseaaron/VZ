@@ -32,11 +32,12 @@ function App() {
     <Layout>
       <Toaster position="top-right" />
       <Routes>
-        <Route path="/" element={<SlotMachine />} />
+        <Route path="/" element={<Games />} />
+        <Route path="/slots" element={<SlotMachine />} />
         <Route path="/dice" element={<DiceGame />} />
         <Route path="/crash" element={<CrashGame />} />
         <Route path="/chess" element={<ChessGame />} />
-        <Route path="/games" element={<Games />} />
+        <Route path="/chess/:gameId" element={<ChessGame />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/chat" element={<ChatSystem />} />
         <Route path="/rewards" element={<LoyaltySystem />} />

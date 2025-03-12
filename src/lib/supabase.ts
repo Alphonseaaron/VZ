@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './supabase-types';
 
-const supabaseUrl = 'https://qnpztvrljsqxlgllvxmq.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHp0dnJsanNxeGxnbGx2eG1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2ODgzOTIsImV4cCI6MjA1NzI2NDM5Mn0.nT5mnUuwyZLIp9srEQggbNkjecfBfNGpzbxmCkJl2ns';
+// CRITICAL: These values should be moved to environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qnpztvrljsqxlgllvxmq.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHp0dnJsanNxeGxnbGx2eG1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2ODgzOTIsImV4cCI6MjA1NzI2NDM5Mn0.nT5mnUuwyZLIp9srEQggbNkjecfBfNGpzbxmCkJl2ns';
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -44,6 +45,19 @@ export const supabaseHelper = {
     return data;
   },
 
+  async getBetHistory(userId: string, gameType: string) {
+    const { data, error } = await supabase
+      .from('betting_history')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('game_type', gameType)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+    return data;
+  },
+
   async updateUserBalance(userId: string, amount: number) {
     const { error } = await supabase.rpc('update_user_balance', {
       p_user_id: userId,
@@ -71,6 +85,20 @@ export const supabaseHelper = {
       p_participants: participants
     });
     
+    if (error) throw error;
+  },
+
+  async recordBet(userId: string, gameType: string, betAmount: number, payoutAmount: number, multiplier: number = 1) {
+    const { error } = await supabase
+      .from('betting_history')
+      .insert([{
+        user_id: userId,
+        game_type: gameType,
+        bet_amount: betAmount,
+        payout_amount: payoutAmount,
+        multiplier: multiplier
+      }]);
+
     if (error) throw error;
   }
 };

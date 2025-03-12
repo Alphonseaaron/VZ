@@ -10,7 +10,6 @@ import { ShareButton } from '../../ui/ShareButton';
 import toast from 'react-hot-toast';
 import { nanoid } from 'nanoid';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import * as Stockfish from 'stockfish.js';
 
 interface GameState {
   fen: string;
@@ -38,36 +37,12 @@ const ChessGame: React.FC = () => {
   const [aiLevel, setAiLevel] = useState(10);
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const { user } = useAuthStore();
-  const engineRef = useRef<any>(null);
 
   useEffect(() => {
     if (gameId) {
       joinGame(gameId);
     }
   }, [gameId]);
-
-  useEffect(() => {
-    engineRef.current = new Stockfish();
-    engineRef.current.onmessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.startsWith('bestmove')) {
-        const move = message.split(' ')[1];
-        if (gameMode === 'ai' && game.turn() === 'b') {
-          makeMove(move.slice(0, 2), move.slice(2, 4));
-        }
-      }
-      if (message.includes('score cp')) {
-        const score = parseInt(message.split('score cp ')[1]);
-        setAnalysis(`Position evaluation: ${score / 100}`);
-      }
-    };
-
-    return () => {
-      if (engineRef.current) {
-        engineRef.current.terminate();
-      }
-    };
-  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -184,9 +159,6 @@ const ChessGame: React.FC = () => {
 
         if (game.isGameOver()) {
           handleGameOver();
-        } else if (gameMode === 'ai' && game.turn() === 'b') {
-          engineRef.current.postMessage(`position fen ${game.fen()}`);
-          engineRef.current.postMessage(`go depth ${aiLevel}`);
         }
       }
     } catch (error) {
@@ -248,8 +220,8 @@ const ChessGame: React.FC = () => {
 
   const startAnalysis = () => {
     setIsAnalyzing(true);
-    engineRef.current.postMessage(`position fen ${game.fen()}`);
-    engineRef.current.postMessage('go depth 20');
+    setAnalysis('Analysis feature has been removed');
+    setTimeout(() => setIsAnalyzing(false), 2000);
   };
 
   const copyInviteLink = () => {
