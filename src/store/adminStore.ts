@@ -1,5 +1,15 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebase';
+import { 
+  collection,
+  query,
+  orderBy,
+  limit,
+  getDocs,
+  updateDoc,
+  doc,
+  where
+} from 'firebase/firestore';
 
 interface AdminState {
   users: any[];
@@ -26,17 +36,15 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
   checkAdminStatus: async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-      set({ isAdmin: data?.is_admin || false });
+      const userDoc = await getDocs(
+        query(collection(db, 'profiles'), where('id', '==', user.uid))
+      );
+      
+      const userData = userDoc.docs[0]?.data();
+      set({ isAdmin: userData?.isAdmin || false });
     } catch (error) {
       console.error('Error checking admin status:', error);
       set({ isAdmin: false });
@@ -46,13 +54,18 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   fetchUsers: async () => {
     try {
       set({ loading: true });
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const usersQuery = query(
+        collection(db, 'profiles'),
+        orderBy('createdAt', 'desc')
+      );
 
-      if (error) throw error;
-      set({ users: data, loading: false });
+      const snapshot = await getDocs(usersQuery);
+      const users = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      set({ users, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
@@ -61,17 +74,28 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   fetchTransactions: async () => {
     try {
       set({ loading: true });
-      const { data, error } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          profiles (username)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      const transactionsQuery = query(
+        collection(db, 'transactions'),
+        orderBy('createdAt', 'desc'),
+        limit(100)
+      );
 
-      if (error) throw error;
-      set({ transactions: data, loading: false });
+      const snapshot = await getDocs(transactionsQuery);
+      const transactions = await Promise.all(
+        snapshot.docs.map(async (transDoc) => {
+          const transaction = transDoc.data();
+          const userDoc = await getDocs(
+            query(collection(db, 'profiles'), where('id', '==', transaction.userId))
+          );
+          const userData = userDoc.docs[0]?.data();
+          return {
+            ...transaction,
+            username: userData?.username
+          };
+        })
+      );
+
+      set({ transactions, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
@@ -80,18 +104,19 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   fetchGameStats: async () => {
     try {
       set({ loading: true });
-      const { data: games, error: gamesError } = await supabase
-        .from('games')
-        .select('game_type, status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(1000);
+      const gamesQuery = query(
+        collection(db, 'games'),
+        orderBy('createdAt', 'desc'),
+        limit(1000)
+      );
 
-      if (gamesError) throw gamesError;
+      const snapshot = await getDocs(gamesQuery);
+      const games = snapshot.docs.map(doc => doc.data());
 
       const stats = {
         totalGames: games.length,
         gamesByType: games.reduce((acc: any, game: any) => {
-          acc[game.game_type] = (acc[game.game_type] || 0) + 1;
+          acc[game.gameType] = (acc[game.gameType] || 0) + 1;
           return acc;
         }, {}),
         recentActivity: games.slice(0, 10)
@@ -106,12 +131,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   banUser: async (userId: string) => {
     try {
       set({ loading: true });
-      const { error } = await supabase
-        .from('profiles')
-        .update({ banned: true })
-        .eq('id', userId);
-
-      if (error) throw error;
+      const userRef = doc(db, 'profiles', userId);
+      await updateDoc(userRef, { banned: true });
       await get().fetchUsers();
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
@@ -121,12 +142,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   unbanUser: async (userId: string) => {
     try {
       set({ loading: true });
-      const { error } = await supabase
-        .from('profiles')
-        .update({ banned: false })
-        .eq('id', userId);
-
-      if (error) throw error;
+      const userRef = doc(db, 'profiles', userId);
+      await updateDoc(userRef, { banned: false });
       await get().fetchUsers();
     } catch (error) {
       set({ error: (error as Error).message, loading: false });

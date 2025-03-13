@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { auth } from '../lib/firebase';
+import { 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged
+} from 'firebase/auth';
 
 interface AuthState {
   user: any | null;
@@ -9,32 +15,26 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  loading: true,
-  signIn: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-    set({ user: data.user });
-  },
-  signUp: async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          email: email, // Include email in metadata
-        }
-      }
-    });
-    if (error) throw error;
-    set({ user: data.user });
-  },
-  signOut: async () => {
-    await supabase.auth.signOut();
-    set({ user: null });
-  },
-}));
+export const useAuthStore = create<AuthState>((set) => {
+  // Set up auth state listener
+  onAuthStateChanged(auth, (user) => {
+    set({ user, loading: false });
+  });
+
+  return {
+    user: null,
+    loading: true,
+    signIn: async (email, password) => {
+      const { user } = await signInWithEmailAndPassword(auth, email, password);
+      set({ user });
+    },
+    signUp: async (email, password) => {
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
+      set({ user });
+    },
+    signOut: async () => {
+      await firebaseSignOut(auth);
+      set({ user: null });
+    },
+  };
+});

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebase';
+import { doc, onSnapshot, runTransaction } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
 
 interface BalanceStore {
   balance: number;
@@ -9,64 +11,62 @@ interface BalanceStore {
   fetchBalance: () => Promise<void>;
 }
 
-export const useBalanceStore = create<BalanceStore>((set, get) => ({
-  balance: 0,
-  loading: false,
-  error: null,
+export const useBalanceStore = create<BalanceStore>((set, get) => {
+  let unsubscribe: (() => void) | null = null;
 
-  updateBalance: async (amount: number) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase.rpc('update_user_balance', {
-        p_user_id: user.id,
-        p_amount: amount
+  // Set up real-time listener for balance updates
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      unsubscribe = onSnapshot(doc(db, 'profiles', user.uid), (doc) => {
+        const data = doc.data();
+        if (data) {
+          set({ balance: data.balance || 0 });
+        }
       });
-
-      if (error) throw error;
-      await get().fetchBalance();
-
-      // Broadcast balance update to all subscribers
-      const channel = supabase.channel('balance_update');
-      channel.send({
-        type: 'broadcast',
-        event: 'balance_change',
-        payload: { user_id: user.id }
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
+    } else if (unsubscribe) {
+      unsubscribe();
     }
-  },
+  });
 
-  fetchBalance: async () => {
-    try {
-      set({ loading: true });
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+  return {
+    balance: 0,
+    loading: false,
+    error: null,
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', user.id)
-        .single();
+    updateBalance: async (amount: number) => {
+      try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('User not authenticated');
 
-      if (error) throw error;
-      set({ balance: data.balance, loading: false });
-    } catch (error) {
-      set({ error: (error as Error).message, loading: false });
+        await runTransaction(db, async (transaction) => {
+          const userRef = doc(db, 'profiles', user.uid);
+          const userDoc = await transaction.get(userRef);
+          const currentBalance = userDoc.data()?.balance || 0;
+          transaction.update(userRef, { balance: currentBalance + amount });
+        });
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+
+    fetchBalance: async () => {
+      try {
+        set({ loading: true });
+        const user = auth.currentUser;
+        if (!user) throw new Error('User not authenticated');
+
+        const userRef = doc(db, 'profiles', user.uid);
+        const unsubscribe = onSnapshot(userRef, (doc) => {
+          const data = doc.data();
+          if (data) {
+            set({ balance: data.balance || 0, loading: false });
+          }
+        });
+
+        return () => unsubscribe();
+      } catch (error) {
+        set({ error: (error as Error).message, loading: false });
+      }
     }
-  }
-}));
-
-// Subscribe to real-time balance updates
-supabase
-  .channel('balance_changes')
-  .on(
-    'postgres_changes',
-    { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${supabase.auth.getUser().then(({ data }) => data.user?.id)}` },
-    () => {
-      useBalanceStore.getState().fetchBalance();
-    }
-  )
-  .subscribe();
+  };
+});

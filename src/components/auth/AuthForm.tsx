@@ -4,9 +4,10 @@ import { useAuthStore } from '../../store/authStore';
 import { motion } from 'framer-motion';
 import { Card } from '../ui/Card';
 import Button from '../ui/Button';
-import { Loader2, Mail, Lock, User } from 'lucide-react';
+import { Loader2, Mail, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { auth, db } from '../../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 const AuthForm = () => {
   const navigate = useNavigate();
@@ -22,23 +23,17 @@ const AuthForm = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+        await signIn(email, password);
         toast.success('Welcome back!');
       } else {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              email: email, // Include email in metadata
-            }
-          }
+        const { user } = await signUp(email, password);
+        // Create user profile in Firestore
+        await setDoc(doc(db, 'profiles', user.uid), {
+          email: email,
+          createdAt: new Date(),
+          balance: 1000, // Starting balance
+          banned: false
         });
-        if (signUpError) throw signUpError;
         toast.success('Account created successfully!');
       }
       navigate('/');
