@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { Wallet } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useBalanceStore } from '../../store/balanceStore';
 
 export const WalletDisplay: React.FC = () => {
@@ -15,28 +16,19 @@ export const WalletDisplay: React.FC = () => {
     // Initial fetch
     fetchBalance();
 
-    // Subscribe to realtime changes
-    const channel = supabase
-      .channel('profile_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        () => {
-          fetchBalance();
-        }
-      )
-      .subscribe();
+    // Subscribe to real-time balance updates
+    const unsubscribe = onSnapshot(doc(db, 'profiles', user.uid), (doc) => {
+      const data = doc.data();
+      if (data) {
+        fetchBalance();
+      }
+    });
 
     // Poll for balance updates every 10 seconds as backup
     const interval = setInterval(fetchBalance, 10000);
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
       clearInterval(interval);
     };
   }, [user, fetchBalance]);

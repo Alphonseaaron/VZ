@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../../../store/authStore';
-import { supabase } from '../../../lib/supabase';
+import { db } from '../../../lib/firebase';
+import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, runTransaction, doc, onSnapshot } from 'firebase/firestore';
 import Button from '../../ui/Button';
 import { TrendingUp, History, Users, Timer, Rocket } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
@@ -38,7 +39,7 @@ interface PlayerBet {
 interface GameHistory {
   id: string;
   crash_point: number;
-  created_at: string;
+  created_at: any;
 }
 
 const CrashGame: React.FC = () => {
@@ -71,48 +72,53 @@ const CrashGame: React.FC = () => {
   }, [user]);
 
   const fetchBalance = async () => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('balance')
-      .eq('user_id', user?.id)
-      .single();
+    if (!user) return;
 
-    if (data && !error) {
-      setBalance(data.balance);
+    const userDoc = await getDocs(
+      query(collection(db, 'profiles'), where('id', '==', user.uid))
+    );
+
+    if (userDoc.docs[0]) {
+      setBalance(userDoc.docs[0].data().balance || 0);
     }
   };
 
   const fetchGameHistory = async () => {
-    const { data, error } = await supabase
-      .from('crash_games')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10);
+    if (!user) return;
 
-    if (data && !error) {
-      setGameHistory(data);
-    }
+    const historyQuery = query(
+      collection(db, 'crash_games'),
+      orderBy('created_at', 'desc'),
+      limit(10)
+    );
+
+    const snapshot = await getDocs(historyQuery);
+    setGameHistory(snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as GameHistory[]);
   };
 
   const subscribeToGameUpdates = () => {
-    const gameChannel = supabase.channel('crash_game');
-    
-    gameChannel
-      .on('broadcast', { event: 'game_update' }, ({ payload }) => {
-        const { multiplier, active, bets } = payload;
-        setCurrentMultiplier(multiplier);
-        setGameActive(active);
-        setPlayerBets(bets);
-        
-        if (active) {
-          setChartData(prev => [...prev, multiplier]);
-        }
-      })
-      .subscribe();
+    if (!user) return;
 
-    return () => {
-      gameChannel.unsubscribe();
-    };
+    const gameUpdatesQuery = query(collection(db, 'crash_game_updates'));
+    const unsubscribe = onSnapshot(gameUpdatesQuery, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'modified') {
+          const data = change.doc.data();
+          setCurrentMultiplier(data.multiplier);
+          setGameActive(data.active);
+          setPlayerBets(data.bets || []);
+          
+          if (data.active) {
+            setChartData(prev => [...prev, data.multiplier]);
+          }
+        }
+      });
+    });
+
+    return unsubscribe;
   };
 
   const generateCrashPoint = (): number => {
@@ -125,7 +131,7 @@ const CrashGame: React.FC = () => {
   };
 
   const startGame = async () => {
-    if (!hasPlacedBet || betAmount > balance) return;
+    if (!hasPlacedBet || betAmount > balance || !user) return;
 
     setIsPlaying(true);
     setGameActive(true);
@@ -152,43 +158,85 @@ const CrashGame: React.FC = () => {
     }, updateInterval);
   };
 
-  const endGame = () => {
+  const endGame = async () => {
     if (gameInterval.current) {
       clearInterval(gameInterval.current);
     }
     setGameActive(false);
     setIsPlaying(false);
     setHasPlacedBet(false);
+
+    // Record game result
+    if (user) {
+      await addDoc(collection(db, 'crash_games'), {
+        crash_point: currentMultiplier,
+        created_at: serverTimestamp()
+      });
+    }
+
     fetchGameHistory();
   };
 
   const placeBet = async () => {
-    if (betAmount > balance || hasPlacedBet) return;
+    if (betAmount > balance || hasPlacedBet || !user) return;
 
-    const newBalance = balance - betAmount;
-    setBalance(newBalance);
-    setHasPlacedBet(true);
+    try {
+      const userRef = doc(db, 'profiles', user.uid);
+      await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) {
+          throw new Error('User document does not exist!');
+        }
+        const currentBalance = userDoc.data().balance || 0;
+        if (currentBalance < betAmount) {
+          throw new Error('Insufficient balance');
+        }
+        transaction.update(userRef, { balance: currentBalance - betAmount });
+      });
 
-    await supabase.from('crash_bets').insert({
-      user_id: user?.id,
-      bet_amount: betAmount,
-      auto_cashout: autoCashout
-    });
+      await addDoc(collection(db, 'crash_bets'), {
+        user_id: user.uid,
+        bet_amount: betAmount,
+        auto_cashout: autoCashout,
+        created_at: serverTimestamp()
+      });
+
+      setBalance(prev => prev - betAmount);
+      setHasPlacedBet(true);
+    } catch (error) {
+      console.error('Error placing bet:', error);
+    }
   };
 
   const handleCashout = async () => {
-    if (!isPlaying || hasCashedOut) return;
+    if (!isPlaying || hasCashedOut || !user) return;
 
-    const winAmount = betAmount * currentMultiplier;
-    const newBalance = balance + winAmount;
-    setBalance(newBalance);
-    setHasCashedOut(true);
+    try {
+      const winAmount = betAmount * currentMultiplier;
+      const userRef = doc(db, 'profiles', user.uid);
+      
+      await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) {
+          throw new Error('User document does not exist!');
+        }
+        const currentBalance = userDoc.data().balance || 0;
+        transaction.update(userRef, { balance: currentBalance + winAmount });
+      });
 
-    await supabase.from('crash_bets').update({
-      cashed_out: true,
-      cashout_multiplier: currentMultiplier,
-      payout: winAmount
-    }).eq('user_id', user?.id);
+      await addDoc(collection(db, 'crash_cashouts'), {
+        user_id: user.uid,
+        bet_id: user.uid, // You might want to store the original bet ID
+        multiplier: currentMultiplier,
+        payout: winAmount,
+        created_at: serverTimestamp()
+      });
+
+      setBalance(prev => prev + winAmount);
+      setHasCashedOut(true);
+    } catch (error) {
+      console.error('Error processing cashout:', error);
+    }
   };
 
   const chartOptions = {
@@ -417,16 +465,16 @@ const CrashGame: React.FC = () => {
               </h2>
             </div>
             <div className="space-y-2">
-              {gameHistory.map((game, index) => (
+              {gameHistory.map((game) => (
                 <div
-                  key={index}
+                  key={game.id}
                   className={`
                     flex justify-between items-center p-2 rounded
                     ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}
                   `}
                 >
                   <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}>
-                    {new Date(game.created_at).toLocaleTimeString()}
+                    {new Date(game.created_at.seconds * 1000).toLocaleTimeString()}
                   </span>
                   <span className={
                     game.crash_point >= 2

@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../../store/authStore';
-import { supabase } from '../../../lib/supabase';
+import { db } from '../../../lib/firebase';
+import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, runTransaction, doc } from 'firebase/firestore';
 import Button from '../../ui/Button';
 import { Dice1, Dice6, TrendingUp, TrendingDown, History } from 'lucide-react';
 
 interface RollHistory {
-  id: number;
+  id: string;
   target_number: number;
   roll_result: number;
   bet_amount: number;
   is_over: boolean;
   won: boolean;
-  timestamp: string;
+  created_at: any;
 }
 
 const DiceGame: React.FC = () => {
@@ -32,28 +33,32 @@ const DiceGame: React.FC = () => {
   }, [user]);
 
   const fetchBalance = async () => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('balance')
-      .eq('user_id', user?.id)
-      .single();
+    if (!user) return;
 
-    if (data && !error) {
-      setBalance(data.balance);
+    const userDoc = await getDocs(
+      query(collection(db, 'profiles'), where('id', '==', user.uid))
+    );
+
+    if (userDoc.docs[0]) {
+      setBalance(userDoc.docs[0].data().balance || 0);
     }
   };
 
   const fetchRollHistory = async () => {
-    const { data, error } = await supabase
-      .from('dice_rolls')
-      .select('*')
-      .eq('user_id', user?.id)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    if (!user) return;
 
-    if (data && !error) {
-      setRollHistory(data);
-    }
+    const historyQuery = query(
+      collection(db, 'dice_rolls'),
+      where('user_id', '==', user.uid),
+      orderBy('created_at', 'desc'),
+      limit(10)
+    );
+
+    const snapshot = await getDocs(historyQuery);
+    setRollHistory(snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as RollHistory[]);
   };
 
   const calculateWinProbability = (): number => {
@@ -75,14 +80,20 @@ const DiceGame: React.FC = () => {
   };
 
   const updateBalanceInDatabase = async (newBalance: number) => {
-    await supabase
-      .from('user_profiles')
-      .update({ balance: newBalance })
-      .eq('user_id', user?.id);
+    if (!user) return;
+
+    const userRef = doc(db, 'profiles', user.uid);
+    await runTransaction(db, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) {
+        throw new Error('User document does not exist!');
+      }
+      transaction.update(userRef, { balance: newBalance });
+    });
   };
 
   const handleRoll = async () => {
-    if (isRolling || betAmount > balance) return;
+    if (isRolling || betAmount > balance || !user) return;
 
     setIsRolling(true);
     const newBalance = balance - betAmount;
@@ -97,23 +108,28 @@ const DiceGame: React.FC = () => {
     const winAmount = won ? betAmount * calculateMultiplier() : 0;
     const finalBalance = newBalance + winAmount;
 
-    // Record roll in database
-    await supabase.from('dice_rolls').insert({
-      user_id: user?.id,
-      target_number: targetNumber,
-      roll_result: rollResult,
-      bet_amount: betAmount,
-      is_over: isOver,
-      won: won,
-      payout: winAmount
-    });
+    try {
+      // Record roll in database
+      await addDoc(collection(db, 'dice_rolls'), {
+        user_id: user.uid,
+        target_number: targetNumber,
+        roll_result: rollResult,
+        bet_amount: betAmount,
+        is_over: isOver,
+        won: won,
+        payout: winAmount,
+        created_at: serverTimestamp()
+      });
 
-    setTimeout(async () => {
-      setBalance(finalBalance);
+      // Update user's balance
       await updateBalanceInDatabase(finalBalance);
+      setBalance(finalBalance);
       await fetchRollHistory();
+    } catch (error) {
+      console.error('Error processing roll:', error);
+    } finally {
       setIsRolling(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -209,9 +225,9 @@ const DiceGame: React.FC = () => {
             <h2 className="text-lg font-semibold">Roll History</h2>
           </div>
           <div className="space-y-2">
-            {rollHistory.map((roll, index) => (
+            {rollHistory.map((roll) => (
               <div
-                key={index}
+                key={roll.id}
                 className={`p-3 rounded-lg ${
                   roll.won ? 'bg-green-50' : 'bg-red-50'
                 }`}

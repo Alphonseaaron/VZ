@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/firebase';
+import { collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuthStore } from '../../store/authStore';
 import { Card } from '../ui/Card';
 import Button from '../ui/Button';
@@ -11,12 +12,10 @@ import { soundManager } from '../../lib/sounds';
 
 interface Message {
   id: string;
-  user_id: string;
+  userId: string;
   message: string;
-  created_at: string;
-  profiles: {
-    username: string;
-  };
+  createdAt: any;
+  username: string;
 }
 
 export const ChatSystem: React.FC = () => {
@@ -28,9 +27,25 @@ export const ChatSystem: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchMessages();
-    subscribeToMessages();
-  }, []);
+    if (!user) return;
+    
+    const messagesQuery = query(
+      collection(db, 'chat_messages'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      const newMessages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Message));
+      setMessages(newMessages.reverse());
+      soundManager.play('click');
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   useEffect(() => {
     scrollToBottom();
@@ -38,67 +53,6 @@ export const ChatSystem: React.FC = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const fetchMessages = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select(`
-          id,
-          user_id,
-          message,
-          created_at,
-          profiles (username)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setMessages(data.reverse());
-    } catch (error) {
-      setError('Failed to load messages');
-      console.error('Error fetching messages:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const subscribeToMessages = () => {
-    const channel = supabase
-      .channel('chat_messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        async (payload) => {
-          const { data: message, error } = await supabase
-            .from('chat_messages')
-            .select(`
-              id,
-              user_id,
-              message,
-              created_at,
-              profiles (username)
-            `)
-            .eq('id', payload.new.id)
-            .single();
-
-          if (!error && message) {
-            setMessages((prev) => [...prev, message]);
-            soundManager.play('click');
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   };
 
   const sendMessage = async (e: React.FormEvent) => {
@@ -109,12 +63,13 @@ export const ChatSystem: React.FC = () => {
     setError(null);
 
     try {
-      const { error } = await supabase.from('chat_messages').insert({
-        user_id: user.id,
+      await addDoc(collection(db, 'chat_messages'), {
+        userId: user.uid,
+        username: user.displayName || 'Anonymous',
         message: newMessage.trim(),
+        createdAt: serverTimestamp()
       });
 
-      if (error) throw error;
       setNewMessage('');
       soundManager.play('click');
     } catch (error) {
@@ -151,18 +106,18 @@ export const ChatSystem: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               className={`flex flex-col ${
-                message.user_id === user?.id ? 'items-end' : 'items-start'
+                message.userId === user?.uid ? 'items-end' : 'items-start'
               }`}
             >
               <div
                 className={`max-w-[80%] p-3 rounded-lg ${
-                  message.user_id === user?.id
+                  message.userId === user?.uid
                     ? 'bg-primary text-secondary'
                     : 'bg-surface'
                 }`}
               >
                 <div className="font-medium text-sm mb-1">
-                  {message.profiles.username}
+                  {message.username}
                 </div>
                 <div>{message.message}</div>
               </div>
