@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../../store/authStore';
-import { supabase } from '../../../lib/supabase';
+import { db } from '../../../lib/firebase';
+import { collection, addDoc, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { Card } from '../../ui/Card';
 import Button from '../../ui/Button';
 import { Crown, Clock, RotateCcw, Share2, Copy, Users, Brain } from 'lucide-react';
@@ -66,34 +67,37 @@ const ChessGame: React.FC = () => {
 
   const createGame = async () => {
     const newGameId = nanoid();
-    const { data, error } = await supabase
-      .from('games')
-      .insert({
+    const { user } = useAuthStore.getState();
+    
+    try {
+      const docRef = await addDoc(collection(db, 'games'), {
         id: newGameId,
         game_type: 'chess',
         status: 'waiting',
         metadata: {
           fen: game.fen(),
-          created_by: user?.id
+          created_by: user?.uid
+        },
+        created_at: new Date()
+      });
+
+      // Set up real-time listener
+      const unsubscribe = onSnapshot(doc(db, 'games', docRef.id), (doc) => {
+        const data = doc.data();
+        if (data?.status === 'active') {
+          setWaitingForOpponent(false);
+          startGame();
         }
-      })
-      .select()
-      .single();
+      });
 
-    if (error) {
+      navigate(`/chess/${docRef.id}`);
+      setWaitingForOpponent(true);
+
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating game:', error);
       toast.error('Failed to create game');
-      return;
     }
-
-    const channel = supabase.channel(`game:${newGameId}`);
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        navigate(`/chess/${newGameId}`);
-        setWaitingForOpponent(true);
-      }
-    });
-
-    return newGameId;
   };
 
   const joinGame = async (gameId: string) => {

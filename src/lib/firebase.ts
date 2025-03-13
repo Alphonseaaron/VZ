@@ -13,71 +13,73 @@ const firebaseConfig = {
   measurementId: "G-JSXP5Z4GCR"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const analytics = getAnalytics(app);
 
-// Helper functions for common Firebase operations
 export const firebaseHelper = {
   getCurrentUser: () => auth.currentUser,
   
   async getUserProfile(userId: string) {
     const { doc, getDoc } = await import('firebase/firestore');
-    const userDoc = await getDoc(doc(db, 'profiles', userId));
+    const userDoc = await getDoc(doc(db, 'users', userId));
     return userDoc.data();
   },
 
   async updateUserBalance(userId: string, amount: number) {
     const { doc, runTransaction } = await import('firebase/firestore');
     await runTransaction(db, async (transaction) => {
-      const userRef = doc(db, 'profiles', userId);
+      const userRef = doc(db, 'users', userId);
       const userDoc = await transaction.get(userRef);
+      
+      if (!userDoc.exists()) {
+        throw new Error('User document not found');
+      }
+      
       const currentBalance = userDoc.data()?.balance || 0;
-      transaction.update(userRef, { balance: currentBalance + amount });
+      const newBalance = currentBalance + amount;
+      
+      if (newBalance < 0) {
+        throw new Error('Insufficient balance');
+      }
+      
+      transaction.update(userRef, { balance: newBalance });
     });
   },
 
-  async createGameSession(gameType: string, metadata = {}) {
+  async createGameSession(userId: string, gameType: string, betAmount: number) {
     const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
     const gamesRef = collection(db, 'games');
+    
+    // Verify and deduct balance first
+    await this.updateUserBalance(userId, -betAmount);
+    
     const gameDoc = await addDoc(gamesRef, {
+      userId,
       gameType,
+      betAmount,
       status: 'active',
-      createdAt: serverTimestamp(),
-      metadata
+      createdAt: serverTimestamp()
     });
-    return { id: gameDoc.id, ...metadata };
+    
+    return gameDoc.id;
   },
 
-  async processGameResult(gameId: string, winnerId: string | null, participants: any[]) {
-    const { doc, updateDoc, collection, writeBatch, serverTimestamp } = await import('firebase/firestore');
-    const batch = writeBatch(db);
+  async processGameResult(gameId: string, userId: string, winAmount: number) {
+    const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
     
     // Update game status
     const gameRef = doc(db, 'games', gameId);
-    batch.update(gameRef, {
+    await updateDoc(gameRef, {
       status: 'completed',
-      endedAt: serverTimestamp(),
-      winnerId
+      winAmount,
+      completedAt: serverTimestamp()
     });
 
-    // Process participants
-    participants.forEach((participant) => {
-      const { userId, result, score } = participant;
-      const participantRef = doc(collection(db, 'gameParticipants'), `${gameId}_${userId}`);
-      batch.set(participantRef, {
-        result,
-        score,
-        leftAt: serverTimestamp()
-      });
-
-      // Update user balance
-      const userRef = doc(db, 'profiles', userId);
-      batch.update(userRef, { balance: score });
-    });
-
-    await batch.commit();
+    // Update user balance if they won
+    if (winAmount > 0) {
+      await this.updateUserBalance(userId, winAmount);
+    }
   }
 };

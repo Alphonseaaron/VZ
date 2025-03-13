@@ -23,12 +23,13 @@ export default {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-20px)' },
         }
-      },
-      boxShadow: {
-        'neon': '0 0 5px theme(colors.primary), 0 0 20px theme(colors.primary)',
-        'neon-lg': '0 0 10px theme(colors.primary), 0 0 40px theme(colors.primary)',
-      },
+      }
     },
   },
   plugins: [],
+  safelist: [
+    {
+      pattern: /bg-(primary|surface|accent1|accent2|accent3)\/[0-9]+/,
+    }
+  ]
 };

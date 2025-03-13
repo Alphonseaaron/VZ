@@ -4,89 +4,79 @@
 
 @layer base {
   :root {
-    --background: #0A0A1B;
-    --surface: #1A1A2F;
-    --primary: #FFD700;
+    --background: #0F212E;
+    --surface: #1A2C38;
+    --primary: #00E701;
     --secondary: #ffffff;
     --text: #ffffff;
-    --border: #2A2A4F;
-    --accent1: #FF3366;
-    --accent2: #33FF99;
-    --accent3: #3366FF;
+    --border: #2A3C48;
+    --accent1: #00E701;
+    --accent2: #00B9FF;
+    --accent3: #FF3366;
   }
 
   body {
-    background: radial-gradient(circle at 50% 50%, var(--background), #050510);
+    background: var(--background);
     min-height: 100vh;
+    color: var(--text);
   }
 }
 
-.glass-effect {
-  background: rgba(26, 26, 47, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.neon-border {
-  box-shadow: 0 0 5px var(--primary),
-              0 0 20px var(--primary);
-}
-
-.neon-text {
-  text-shadow: 0 0 5px var(--primary),
-               0 0 20px var(--primary);
-}
-
-.game-card {
-  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-  transform-style: preserve-3d;
-  perspective: 1000px;
-}
-
-.game-card:hover {
-  transform: translateY(-5px) rotateX(5deg);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-}
-
-/* Animated gradient background */
-.gradient-animate {
-  background: linear-gradient(
-    45deg,
-    var(--primary) 0%,
-    var(--accent1) 25%,
-    var(--accent2) 50%,
-    var(--accent3) 75%,
-    var(--primary) 100%
-  );
-  background-size: 400% 400%;
-  animation: gradient 15s ease infinite;
-}
-
-@keyframes gradient {
-  0% {
-    background-position: 0% 50%;
+@layer components {
+  .glass-effect {
+    background: rgba(26, 44, 56, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
 
-/* 3D Card effect */
-.card-3d {
-  transform-style: preserve-3d;
-  transition: transform 0.3s ease;
-}
+  .neon-border {
+    box-shadow: 0 0 5px var(--primary),
+                0 0 20px var(--primary);
+  }
 
-.card-3d:hover {
-  transform: translateZ(20px) rotateX(5deg) rotateY(5deg);
+  .neon-text {
+    text-shadow: 0 0 5px var(--primary),
+                0 0 20px var(--primary);
+  }
+
+  .game-card {
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+
+  .game-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary);
+  }
+
+  .bet-input {
+    @apply bg-surface border border-border rounded-lg px-4 py-2 focus:outline-none focus:border-primary transition-colors;
+  }
+
+  .game-button {
+    @apply bg-primary text-background font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .game-button:hover {
+    @apply bg-opacity-90;
+  }
+
+  .game-container {
+    @apply bg-surface border border-border rounded-lg p-6 shadow-lg;
+  }
+
+  .stake-gradient {
+    background: linear-gradient(45deg, var(--primary), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -99,5 +89,5 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent1);
+  background: var(--accent2);
 }

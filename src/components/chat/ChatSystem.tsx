@@ -31,7 +31,7 @@ export const ChatSystem: React.FC = () => {
     
     const messagesQuery = query(
       collection(db, 'chat_messages'),
-      orderBy('createdAt', 'desc'),
+      orderBy('created_at', 'desc'),
       limit(50)
     );
 
@@ -39,7 +39,7 @@ export const ChatSystem: React.FC = () => {
       const newMessages = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Message));
+      }));
       setMessages(newMessages.reverse());
       soundManager.play('click');
     });
