@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/firebase';
+import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { Card } from '../ui/Card';
 import { Trophy, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -24,26 +25,32 @@ export const Leaderboard: React.FC = () => {
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('leaderboards')
-        .select(`
-          user_id,
-          score,
-          profiles (username)
-        `)
-        .eq('period', period)
-        .order('score', { ascending: false })
-        .limit(10);
+      const leaderboardRef = collection(db, 'leaderboards');
+      const q = query(
+        leaderboardRef,
+        where('period', '==', period),
+        orderBy('score', 'desc'),
+        limit(10)
+      );
 
-      if (error) throw error;
+      const snapshot = await getDocs(q);
+      const leaderboardData = await Promise.all(
+        snapshot.docs.map(async (doc, index) => {
+          const data = doc.data();
+          const userDoc = await getDocs(
+            query(collection(db, 'profiles'), where('id', '==', data.user_id))
+          );
+          const userData = userDoc.docs[0]?.data();
+          
+          return {
+            username: userData?.username || 'Anonymous',
+            score: data.score,
+            rank: index + 1
+          };
+        })
+      );
 
-      const formattedEntries = data.map((entry, index) => ({
-        username: entry.profiles.username,
-        score: entry.score,
-        rank: index + 1
-      }));
-
-      setEntries(formattedEntries);
+      setEntries(leaderboardData);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
     } finally {

@@ -3,7 +3,8 @@ import { useAuthStore } from '../../../store/authStore';
 import { useBalanceStore } from '../../../store/balanceStore';
 import SlotSymbol, { SymbolType, symbolMultipliers } from './SlotSymbol';
 import Button from '../../ui/Button';
-import { supabase } from '../../../lib/supabase';
+import { db } from '../../../lib/firebase';
+import { collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } from 'firebase/firestore';
 import { BetHistory } from '../BetHistory';
 import { Card } from '../../ui/Card';
 
@@ -37,29 +38,33 @@ const SlotMachine: React.FC = () => {
   }, [user]);
 
   const fetchBalance = async () => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('balance')
-      .eq('user_id', user?.id)
-      .single();
-
-    if (data && !error) {
-      setBalance(data.balance);
+    if (!user) return;
+    
+    const userDoc = await getDocs(
+      query(collection(db, 'profiles'), where('id', '==', user.uid))
+    );
+    
+    if (userDoc.docs[0]) {
+      setBalance(userDoc.docs[0].data().balance || 0);
     }
   };
 
   const fetchGameHistory = async () => {
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .select('*')
-      .eq('user_id', user?.id)
-      .eq('game_type', 'slots')
-      .order('created_at', { ascending: false })
-      .limit(10);
+    if (!user) return;
 
-    if (data && !error) {
-      setGameHistory(data);
-    }
+    const historyQuery = query(
+      collection(db, 'game_sessions'),
+      where('user_id', '==', user.uid),
+      where('game_type', '==', 'slots'),
+      orderBy('created_at', 'desc'),
+      limit(10)
+    );
+
+    const snapshot = await getDocs(historyQuery);
+    setGameHistory(snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as any)));
   };
 
   const generateSecureSymbol = (): SymbolType => {
@@ -84,7 +89,7 @@ const SlotMachine: React.FC = () => {
     );
 
     // Animate spinning
-    setTimeout(() => {
+    setTimeout(async () => {
       setGrid(newGrid);
       setIsSpinning(false);
       const lines = checkWinningLines(newGrid);
@@ -92,33 +97,47 @@ const SlotMachine: React.FC = () => {
       
       // Calculate winnings
       const winAmount = calculateWinnings(lines, betAmount);
+      const finalBalance = newBalance + winAmount;
+      
       if (winAmount > 0) {
-        setBalance(newBalance + winAmount);
-        updateBalanceInDatabase(newBalance + winAmount);
+        setBalance(finalBalance);
+        await updateBalanceInDatabase(finalBalance);
       } else {
-        updateBalanceInDatabase(newBalance);
+        await updateBalanceInDatabase(newBalance);
       }
 
       // Record game session
-      recordGameSession(betAmount, winAmount);
+      await recordGameSession(betAmount, winAmount);
     }, 2000);
   };
 
   const recordGameSession = async (bet: number, payout: number) => {
-    await supabase.from('game_sessions').insert({
-      user_id: user?.id,
+    if (!user) return;
+
+    await addDoc(collection(db, 'game_sessions'), {
+      user_id: user.uid,
       game_type: 'slots',
       bet_amount: bet,
-      outcome_amount: payout
+      payout_amount: payout,
+      created_at: serverTimestamp()
     });
+
     fetchGameHistory();
   };
 
   const updateBalanceInDatabase = async (newBalance: number) => {
-    await supabase
-      .from('user_profiles')
-      .update({ balance: newBalance })
-      .eq('user_id', user?.id);
+    if (!user) return;
+
+    const userRef = collection(db, 'profiles');
+    const q = query(userRef, where('id', '==', user.uid));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.docs[0]) {
+      await addDoc(collection(db, 'profiles'), {
+        id: user.uid,
+        balance: newBalance
+      });
+    }
   };
 
   const checkWinningLines = (currentGrid: SymbolType[][]): WinningLine[] => {

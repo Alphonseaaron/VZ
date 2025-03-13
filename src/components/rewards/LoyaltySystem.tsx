@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/firebase';
+import { collection, query, where, getDocs, addDoc, runTransaction, doc } from 'firebase/firestore';
 import { useAuthStore } from '../../store/authStore';
 import { Card } from '../ui/Card';
 import Button from '../ui/Button';
@@ -35,14 +36,17 @@ export const LoyaltySystem: React.FC = () => {
 
   const fetchPoints = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('loyalty_points')
-        .eq('id', user?.id)
-        .single();
+      if (!user) return;
 
-      if (error) throw error;
-      setPoints(data.loyalty_points || 0);
+      const profileQuery = query(
+        collection(db, 'profiles'),
+        where('id', '==', user.uid)
+      );
+      const snapshot = await getDocs(profileQuery);
+      
+      if (snapshot.docs[0]) {
+        setPoints(snapshot.docs[0].data().loyalty_points || 0);
+      }
     } catch (error) {
       console.error('Error fetching points:', error);
     }
@@ -50,31 +54,56 @@ export const LoyaltySystem: React.FC = () => {
 
   const fetchRewards = async () => {
     try {
-      const { data, error } = await supabase
-        .from('rewards')
-        .select('*')
-        .order('points_required', { ascending: true });
-
-      if (error) throw error;
-      setRewards(data);
+      const rewardsQuery = query(collection(db, 'rewards'));
+      const snapshot = await getDocs(rewardsQuery);
+      
+      const rewardsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Reward[];
+      
+      setRewards(rewardsData);
     } catch (error) {
       console.error('Error fetching rewards:', error);
     }
   };
 
   const claimReward = async (reward: Reward) => {
-    if (points < reward.points_required) return;
+    if (!user || points < reward.points_required) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase.rpc('claim_reward', {
-        p_reward_id: reward.id,
-        p_user_id: user?.id
+      await runTransaction(db, async (transaction) => {
+        // Get user profile
+        const profileRef = doc(db, 'profiles', user.uid);
+        const profileSnap = await transaction.get(profileRef);
+        
+        if (!profileSnap.exists()) {
+          throw new Error('User profile not found');
+        }
+
+        const currentPoints = profileSnap.data().loyalty_points || 0;
+        
+        if (currentPoints < reward.points_required) {
+          throw new Error('Insufficient points');
+        }
+
+        // Update points
+        transaction.update(profileRef, {
+          loyalty_points: currentPoints - reward.points_required
+        });
+
+        // Record reward claim
+        const claimRef = collection(db, 'reward_claims');
+        transaction.set(doc(claimRef), {
+          user_id: user.uid,
+          reward_id: reward.id,
+          claimed_at: new Date(),
+          points_spent: reward.points_required
+        });
       });
 
-      if (error) throw error;
       await fetchPoints();
-      // Show success message or trigger reward animation
     } catch (error) {
       console.error('Error claiming reward:', error);
     } finally {
